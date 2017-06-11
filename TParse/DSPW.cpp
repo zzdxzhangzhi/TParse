@@ -1,3 +1,5 @@
+#pragma GCC optimize (2)
+
 #if defined(__STDC_LIB_EXT1__)
 #if (__STDC_LIB_EXT1__ >= 201112L)
 #define __STDC_WANT_LIB_EXT1__ 1 /* Want the ext1 functions */
@@ -94,6 +96,7 @@ const vector<string>& split(const string &origStr, vector<string>& resStr,
 // 0= 'in DS', 1= 'dominated but not in DS', 2= 'future dominated'
 // f is the function result serials of the vertices and DS
 // t is the t-parse number
+int rankDS(const vector<int>& f) __attribute__((optimize("-O2")));
 inline int rankDS(const vector<int>& f)
 {
 	int iNum = 0;
@@ -106,6 +109,7 @@ inline int rankDS(const vector<int>& f)
 // extract boundary vertex dominating state from index
 // f is the function result serials of the vertices and DS
 // t is the t-parse number
+unique_ptr<vector<int>> unrankDS(size_t iNum) __attribute__((optimize("-O2")));
 inline unique_ptr<vector<int>> unrankDS(size_t iNum)
 {
 	auto f = make_unique<vector<int>>();
@@ -119,7 +123,8 @@ inline unique_ptr<vector<int>> unrankDS(size_t iNum)
 }
 
 // how many in DS without internal DS vertices
-int initCount(int n)
+int initCount(int n) __attribute__((optimize("-O2")));
+inline int initCount(int n)
 {
 	int iCount = 0;
 	auto f = unrankDS(n);
@@ -164,6 +169,8 @@ private:
 	int m_tok;
 };
 
+void updateStatesBy(int v, const unique_ptr<vector<int>>& f, 
+	const vector<int>& copyOfStates, const unique_ptr<vector<int>>& pStates, size_t iIndex) __attribute__((optimize("-O2")));
 inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f, 
 	const vector<int>& copyOfStates, const unique_ptr<vector<int>>& pStates, size_t iIndex)
 {
@@ -175,6 +182,7 @@ inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f,
 
 // dynamic program for Pathwidth Dominating Set
 // states is the initial state list of all the partial solution of G[i]
+unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates) __attribute__((optimize("-O2")));
 unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates)
 {
 	vector<string> pwTokList;
@@ -231,6 +239,7 @@ unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStat
 }
 
 // dynamic program for Treewidth Dominating Set
+unique_ptr<vector<int>> twDS(string& G) __attribute__((optimize("-O2")));
 unique_ptr<vector<int>> twDS(string& G)
 {
 	G = trim(G);
@@ -329,6 +338,7 @@ unique_ptr<vector<int>> twDS(string& G)
 	return move(pStates);
 }
 
+int main(int argc, char** argv) __attribute__((optimize("-O2")));
 int main(int argc, char** argv)
 {
 	string strInput;

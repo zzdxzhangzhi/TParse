@@ -1,5 +1,3 @@
-#pragma once
-
 #include <iostream>
 #include <array>
 #include <vector>
@@ -7,6 +5,7 @@
 #include <algorithm>
 #include <functional>
 #include <utility>
+#include <memory>
 #include <limits>
 #include <cstring>
 #include <cstdlib>
@@ -20,15 +19,17 @@ using std::pair;
 using std::tuple;
 using std::equal_to;
 using std::less;
-using std::numeric_limits;
+//using std::numeric_limits;
+using std::unique_ptr;
 using std::endl;
 using std::flush;
 using std::bind;
 using std::find_if;
 using std::find;
 using std::find_first_of;
-using std::fprintf;
-using std::sprintf;
+using std::make_unique;
+//using std::fprintf;
+//using std::sprintf_s;
 using std::swap;
 using std::sort;
 using std::make_pair;
@@ -44,9 +45,10 @@ using namespace std::placeholders;
 namespace DS {
 	static int t = 0;
 	static int iTSpace = 0;
+	const int UNDEF = 1 << 30;
 }
 
-inline string&& trim(string &s)
+inline string& trim(string &s)
 {
 	if (s.empty())
 	{
@@ -55,26 +57,29 @@ inline string&& trim(string &s)
 
 	s.erase(0, s.find_first_not_of(" \t\r\n\v\f"));
 	s.erase(s.find_last_not_of("  \t\r\n\v\f") + 1);
-	return move(s);
+	return s;
 }
 
-vector<string>&& split(const string &origStr, const string &delim = "  \t\r\n\v\f")
+const vector<string>& split(const string &origStr, vector<string>& resStr, 
+	const string &delim = "  \t\r\n\v\f")
 {
-	vector<string> resStr;
-	size_t last = 0;
-	size_t index = origStr.find_first_of(delim, last);
-	while (index != string::npos)
+	if (origStr != "")
 	{
-		resStr.push_back(origStr.substr(last, index - last));
-		last = index + 1;
-		index = origStr.find_first_of(delim, last);
-	}
-	if (index - last > 0)
-	{
-		resStr.push_back(origStr.substr(last, index - last));
+		size_t last = 0;
+		size_t index = origStr.find_first_of(delim, last);
+		while (index != string::npos)
+		{
+			resStr.push_back(origStr.substr(last, index - last));
+			last = index + 1;
+			index = origStr.find_first_of(delim, last);
+		}
+		if (index - last > 0)
+		{
+			resStr.push_back(origStr.substr(last, index - last));
+		}
 	}
 
-	return move(resStr);
+	return resStr;
 }
 
 // produce dominating state from boundary states
@@ -93,12 +98,12 @@ inline int rankDS(const vector<int>& f)
 // extract boundary vertex dominating state from index
 // f is the function result serials of the vertices and DS
 // t is the t-parse number
-inline vector<int>&& unrankDS(int iNum)
+inline unique_ptr<vector<int>> unrankDS(int iNum)
 {
-	vector<int> f;
+	auto f = make_unique<vector<int>>();
 	for (size_t i = 0; i < DS::t + 1; i++)
 	{
-		f.push_back(iNum % 3);
+		f->push_back(iNum % 3);
 		iNum /= 3;
 	}
 
@@ -109,13 +114,13 @@ inline vector<int>&& unrankDS(int iNum)
 int initCount(int n)
 {
 	int iCount = 0;
-	vector<int> f = unrankDS(n);
-	for (auto &i : f)
+	auto f = unrankDS(n);
+	for(auto iter = f->begin(); iter != f->end(); iter++)
 	{
-		if (i == 1)
-			return numeric_limits<int>::max();
+		if (*iter == 1)
+			return DS::UNDEF;
 
-		if (i == 0)
+		if (*iter == 0)
 			iCount++;
 	}
 	
@@ -133,7 +138,7 @@ public:
 	string str() 
 	{ 
 		char tokStr[3] = ""; 
-		sprintf(tokStr, "%d", m_tok); 
+		sprintf_s(tokStr, "%d", m_tok); 
 		return tokStr; 
 	}
 
@@ -147,24 +152,24 @@ private:
 	int m_tok;
 };
 
-inline void updateStatesBy(int v, const vector<int>& f, 
-	const vector<int>& copyOfStates, vector<int>& states, int iIndex)
+inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f, 
+	const vector<int>& copyOfStates, const unique_ptr<vector<int>>& pStates, int iIndex)
 {
-	vector<int> fnew = f;
+	vector<int> fnew(f->cbegin(), f->cend());
 	fnew[v] = 2;
 	int iNew = rankDS(fnew);
-	states[iIndex] = min(copyOfStates[iIndex], copyOfStates[iNew]);
+	pStates->at(iIndex) = min(copyOfStates[iIndex], copyOfStates[iNew]);
 }
 
 // dynamic program for Pathwidth Dominating Set
 // states is the initial state list of all the partial solution of G[i]
-vector<int>&& pwDS(const string& pwToks, vector<int>& states)
+unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates)
 {
-	vector<string>&& pwTokList = split(pwToks);
-	for (auto strTok : pwTokList)
+	vector<string> pwTokList;
+	for (auto strTok : split(pwToks, pwTokList))
 	{
 		tOp ope(strTok);
-		vector<int> statesOld = states;
+		vector<int> statesOld(pStates->cbegin(), pStates->cend());
 		
 		int v1 = ope.v1(); //vertex op or the first vertex of the edge op
 		if (ope.isEdgeOp()) //edge op
@@ -173,132 +178,137 @@ vector<int>&& pwDS(const string& pwToks, vector<int>& states)
 			
 			for (int i = 0; i < DS::iTSpace; i++)
 			{
-				vector<int>&& f = unrankDS(i);
-				if ((f[v1] == 0 && f[v2] == 2) || (f[v1] == 2 && f[v2] == 0))
-					states[i] = numeric_limits<int>::max();
-				else if (f[v1] == 0 && f[v2] == 1)
-					updateStatesBy(v2, f, statesOld, states, i);
-				else if (f[v1] == 1 && f[v2] == 0)
-					updateStatesBy(v1, f, statesOld, states, i);
+				auto f = unrankDS(i);
+				if ((f->at(v1) == 0 && f->at(v2) == 2) || (f->at(v1) == 2 && f->at(v2) == 0))
+					pStates->at(i) = DS::UNDEF;
+				else if (f->at(v1) == 0 && f->at(v2) == 1)
+					updateStatesBy(v2, f, statesOld, pStates, i);
+
+				else if (f->at(v1) == 1 && f->at(v2) == 0)
+					updateStatesBy(v1, f, statesOld, pStates, i);
 			}
 		}
 		else //vertex op
 		{
 			for (int i = 0; i < DS::iTSpace; i++)
 			{
-				vector<int>&& f = unrankDS(i);
-				if (f[v1] == 0)
+				auto f = unrankDS(i);
+				if (f->at(v1) == 0)
 				{
-					vector<int> fnew = f;
+					vector<int> fnew(f->cbegin(), f->cend());
 					fnew[v1] = 1;
 					int iNew = rankDS(fnew);
-					states[i] = min(statesOld[i], statesOld[iNew]) + 1;
+					pStates->at(i) = min(statesOld[i], statesOld[iNew]) + 1;
 				}					
-				else if (f[v1] == 1)
-					states[i] = numeric_limits<int>::max();
-				else if (f[v1] == 2)
+				else if (f->at(v1) == 1)
+					pStates->at(i) = DS::UNDEF;
+				else if (f->at(v1) == 2)
 				{
-					vector<int> fn1 = f, fn2 = f;
+					vector<int> fn1(f->cbegin(), f->cend());
+					vector<int> fn2(f->cbegin(), f->cend());
 					fn1[v1] = 0;
 					fn2[v1] = 1;
 					int iNew1 = rankDS(fn1);
 					int iNew2 = rankDS(fn2);
-					states[i] = min(statesOld[iNew1], statesOld[iNew2]);
+					pStates->at(i) = min(statesOld[iNew1], statesOld[iNew2]);
 				}
 			}
 		}
 	}
 
-	return move(states);
+	return move(pStates);
 }
 
 // dynamic program for Treewidth Dominating Set
-vector<int>&& twDS(string& G)
+unique_ptr<vector<int>> twDS(string& G)
 {
 	G = trim(G);
-	cout << "G = " << G << endl;
+	//cout << "G = " << G << endl;
 
-	vector<int> states(DS::iTSpace);
-	for_each(states.begin(), states.end(), [j = 0](auto &i) { i = initCount(j++); });
+	auto pStates = make_unique<vector<int>>(DS::iTSpace);
+	for_each(pStates->begin(), pStates->end(), [j = 0] (auto &i) mutable { i = initCount(j++); });
 
 	if (G.length() == 0)  // empty t-parse
-		return move(states);  
+		return move(pStates);
 
 	if (G.front() != '(') // not a treewidth, only compute pathwidth t-parse
-		return pwDS(G, states);
+		return pwDS(G, move(pStates));
 
 	int iLevel = 1;
-	for (int i = 1; i < G.length(); i++)  // doing a circle plus operator
+	for (size_t i = 1; i < G.length(); i++)  // doing a circle plus operator
 	{
 		if (G[i] == ')')
 			iLevel--;
 		else if (G[i] == '(')
 			iLevel++;
-
-		vector<int> states1;
+				
 		if (iLevel == 0) // left of a circle plus operator
-			states1 = twDS(G.substr(1, i - 1)); // strip a level of ()'s
-
-		while (true)
 		{
-			int k = G.substr(i + 1).find_first_of('(');  // level will imeadiately be set to 1 below
-			if (k == string::npos)
-				return pwDS(G.substr(i + 1), states1); // continue to compute pathwidth after a treewidth
+			auto pStates1 = twDS(G.substr(1, i - 1)); // strip a level of ()'s
 
-			int i2ndStart = i + 1 + k;
-			for (int j = i2ndStart; j < G.length(); j++) // get 2nd (next) argument to circle plus
+			while (true)
 			{
-				if (G[j] == ')')
-					iLevel--;
-				else if (G[j] == '(')
-					iLevel++;
+				string opers = G.substr(i + 1);
+				size_t k = opers.empty() ? string::npos : opers.find_first_of('(');  // level will imeadiately be set to 1 below
+				if (k == string::npos)
+					return pwDS(opers.empty() ? opers : opers.substr(0, opers.find_first_of(')')), 
+						move(pStates1)); // continue to compute pathwidth after a treewidth
 
-				vector<int> states2;
-				if (iLevel == 0)
+				size_t i2ndStart = i + 1 + k;
+				for (size_t j = i2ndStart; j < G.length(); j++) // get 2nd (next) argument to circle plus
 				{
-					states2 = twDS(G.substr(i2ndStart + 1, j - 1)); // right of Circle plus
-					for_each(states.begin(), states.end(), [j = 0](auto &i) { i = initCount(j++); }); // re-initialize states for the right part use
-
-					// now update state for circle plus
-					for (int x = 0; x < DS::iTSpace; x++)
+					if (G[j] == ')')
+						iLevel--;
+					else if (G[j] == '(')
+						iLevel++;
+										
+					if (iLevel == 0)
 					{
-						for (int y = 0; y < DS::iTSpace; y++)
+						auto pStates2 = twDS(G.substr(i2ndStart + 1, j - i2ndStart - 1)); // right of Circle plus
+						for_each(pStates->begin(), pStates->end(),
+							[j = 0](auto &i) mutable { i = initCount(j++); }); // re-initialize states for the right part use
+
+						// now update state for circle plus
+						for (int x = 0; x < DS::iTSpace; x++)
 						{
-							vector<int> f1 = unrankDS(x), f2 = unrankDS(y);
-							vector<int> f;
-							int iCommon = 0;
-
-							// compute new boundary f() conditions
-							for (int z = 0; z < DS::t + 1; z++)
+							for (int y = 0; y < DS::iTSpace; y++)
 							{
-								if (f1[z] == 0 && f2[z] == 0)
-									iCommon++;
+								auto f1 = unrankDS(x), f2 = unrankDS(y);
+								vector<int> f;
+								int iCommon = 0;
 
-								if (f1[z] == 0 || f2[z] == 0)
-									f.push_back(0);
-								else if (f1[z] == 2 && f2[z] == 2)
-									f.push_back(2);
-								else
-									f.push_back(1);
+								// compute new boundary f() conditions
+								for (int z = 0; z < DS::t + 1; z++)
+								{
+									if (f1->at(z) == 0 && f2->at(z) == 0)
+										iCommon++;
+
+									if (f1->at(z) == 0 || f2->at(z) == 0)
+										f.push_back(0);
+									else if (f1->at(z) == 2 && f2->at(z) == 2)
+										f.push_back(2);
+									else
+										f.push_back(1);
+								}
+
+								int iR = rankDS(f);
+								int iS1 = pStates1->at(rankDS(*f1));
+								int iS2 = pStates2->at(rankDS(*f2));
+
+								if (iS1 < DS::UNDEF && iS2 < DS::UNDEF)
+									pStates->at(iR) = min(pStates->at(iR), iS1 + iS2 - iCommon);
 							}
-
-							int iR = rankDS(f);
-							int iS1 = states1[rankDS(f1)];
-							int iS2 = states2[rankDS(f2)];
-
-							if (iS1 < numeric_limits<int>::max() && iS2 < numeric_limits<int>::max())
-								states[iR] = min(states[iR], iS1 + iS2 - iCommon);
 						}
-					}
 
-					if (j + 1 < G.length())
-					{
-						states1 = states;
-						i = j + 1;
-						break;   // to next while iteration to look for another circle plus
+						if (j + 1 < G.length())
+						{
+							pStates1->assign(pStates->cbegin(), pStates->cend());
+							i = j + 1;
+							break;   // to next while iteration to look for another circle plus
+						}
+						else
+							return move(pStates);
 					}
-					else
-						return move(states);
 				}
 			}
 		}
@@ -314,21 +324,22 @@ int main(int argc, char** argv)
 		if (strInput == "")
 			continue;
 
-		string line = trim(strInput);
-		int iTParseStart = line.find_first_of('(');
+		string& line = trim(strInput);
+		int iTParseStart = static_cast<int>(line.find_first_of('('));
 		DS::t = atoi(line.substr(0, iTParseStart).c_str()); // get global t for t-parse
-		cout << "t = " << DS::t << endl;
-		DS::iTSpace = pow(3, DS::t + 1);
+		//cout << "t = " << DS::t << endl;
+		DS::iTSpace = static_cast<int>(pow(3, DS::t + 1));
 
-		int iBestNum = numeric_limits<int>::max();
-		vector<int> states = twDS(line.substr(iTParseStart));
+		int iBestNum = DS::UNDEF;
+		auto pStates = twDS(line.substr(iTParseStart));
 
 		for (int i = 0; i < DS::iTSpace; i++)
 		{
 			bool flag = true;
-			for (auto fvalue : unrankDS(i))
+			auto f = unrankDS(i);
+			for (auto iter = f->begin(); iter != f->end(); iter++)
 			{
-				if (fvalue == 2)
+				if (*iter == 2)
 				{
 					flag = false;
 					break;
@@ -336,7 +347,7 @@ int main(int argc, char** argv)
 			}
 
 			if (flag)
-				iBestNum = min(iBestNum, states[i]);
+				iBestNum = min(iBestNum, pStates->at(i));
 		}
 
 		cout << iBestNum << endl;

@@ -255,7 +255,7 @@ unique_ptr<vector<int>> twDS(string& G) __attribute__((optimize("-O2")));
 unique_ptr<vector<int>> twDS(string& G)
 {
 	G = trim(G);
-	cout << "G = " << G << endl;
+	//cout << "G = " << G << endl;
 
 	auto pStates = make_unique<vector<int>>(DS::iTSpace);
 	size_t n = 0;

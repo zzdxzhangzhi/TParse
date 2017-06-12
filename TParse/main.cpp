@@ -73,6 +73,7 @@ inline string& trim(string &s)
 const vector<string>& split(const string &origStr, vector<string>& resStr, 
 	const string &delim = "  \t\r\n\v\f")
 {
+	
 	if (origStr != "")
 	{
 		size_t last = 0;
@@ -184,10 +185,14 @@ inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f,
 // states is the initial state list of all the partial solution of G[i]
 unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates)
 {
-	cout << "in pwDS, G = " << pwToks << endl;
+	//cout << "in pwDS, G = " << pwToks << endl;
 	string tokens(pwToks);
 	vector<string> pwTokList;
-	for (auto strTok : split(trim(tokens), pwTokList))
+	split(trim(tokens), pwTokList);
+	//for_each(pwTokList.cbegin(), pwTokList.cend(), [](auto &str) { cout << str << " "; });
+	//cout << endl;
+
+	for (auto strTok : pwTokList)
 	{
 		if (!is_digits(strTok))
 			continue;

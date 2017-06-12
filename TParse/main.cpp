@@ -13,6 +13,7 @@
 #include <utility>
 #include <memory>
 #include <limits>
+#include <regex>
 #include <cmath>
 #include <cstring>
 #include <cstdlib>
@@ -48,6 +49,7 @@ using std::mismatch;
 using std::move;
 using std::pow;
 using std::min;
+using std::all_of;
 using namespace std::placeholders;
 
 namespace DS {
@@ -88,6 +90,11 @@ const vector<string>& split(const string &origStr, vector<string>& resStr,
 	}
 
 	return resStr;
+}
+
+inline bool is_digits(const string &str)
+{
+	return all_of(str.begin(), str.end(), ::isdigit); // C++11
 }
 
 // produce dominating state from boundary states
@@ -177,9 +184,14 @@ inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f,
 // states is the initial state list of all the partial solution of G[i]
 unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates)
 {
+	cout << "in pwDS, G = " << pwToks << endl;
+	string tokens(pwToks);
 	vector<string> pwTokList;
-	for (auto strTok : split(pwToks, pwTokList))
+	for (auto strTok : split(trim(tokens), pwTokList))
 	{
+		if (!is_digits(strTok))
+			continue;
+
 		tOp ope(strTok);
 		vector<int> statesOld(pStates->cbegin(), pStates->cend());
 		
@@ -237,7 +249,9 @@ unique_ptr<vector<int>> twDS(string& G)
 	//cout << "G = " << G << endl;
 
 	auto pStates = make_unique<vector<int>>(DS::iTSpace);
-	for_each(pStates->begin(), pStates->end(), [j = 0] (auto &i) mutable { i = initCount(j++); });
+	size_t n = 0;
+	for (auto iter = pStates->begin(); iter != pStates->end(); ++iter)
+		*iter = initCount(n++);
 
 	if (G.length() == 0)  // empty t-parse
 		return move(pStates);
@@ -261,10 +275,9 @@ unique_ptr<vector<int>> twDS(string& G)
 			while (true)
 			{
 				string opers = G.substr(i + 1);
-				size_t k = opers.empty() ? string::npos : opers.find_first_of('(');  // level will imeadiately be set to 1 below
+				size_t k = opers.find_first_of('(');  // level will imeadiately be set to 1 below
 				if (k == string::npos)
-					return pwDS(opers.empty() ? opers : opers.substr(0, opers.find_first_of(')')), 
-						move(pStates1)); // continue to compute pathwidth after a treewidth
+					return pwDS(opers, move(pStates1)); // continue to compute pathwidth after a treewidth
 
 				size_t i2ndStart = i + 1 + k;
 				for (size_t j = i2ndStart; j < G.length(); ++j) // get 2nd (next) argument to circle plus
@@ -276,10 +289,10 @@ unique_ptr<vector<int>> twDS(string& G)
 										
 					if (iLevel == 0)
 					{
-						string secondPart = G.substr(i2ndStart + 1, j - i2ndStart - 1);
+						string secondPart = G.substr(i2ndStart + 1, j - 1 - i2ndStart);
 						auto pStates2 = twDS(secondPart); // right of Circle plus
-						for_each(pStates->begin(), pStates->end(),
-							[] (auto &i) mutable { i = DS::UNDEF; }); // re-initialize states for the right part use
+						//for_each(pStates->begin(), pStates->end(), [] (auto &i) mutable { i = DS::UNDEF; }); 
+						pStates->assign(DS::iTSpace, DS::UNDEF);// re-initialize states for the right part use
 
 						// now update state for circle plus
 						for (size_t x = 0; x < DS::iTSpace; ++x)

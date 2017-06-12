@@ -50,6 +50,7 @@ using std::mismatch;
 using std::move;
 using std::pow;
 using std::min;
+using std::all_of;
 using namespace std::placeholders;
 
 namespace DS {
@@ -90,6 +91,12 @@ const vector<string>& split(const string &origStr, vector<string>& resStr,
 	}
 
 	return resStr;
+}
+
+bool is_digits(const string &str) __attribute__((optimize("-O2")));
+inline bool is_digits(const string &str)
+{
+	return all_of(str.begin(), str.end(), ::isdigit); // C++11
 }
 
 // produce dominating state from boundary states
@@ -185,9 +192,14 @@ inline void updateStatesBy(int v, const unique_ptr<vector<int>>& f,
 unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates) __attribute__((optimize("-O2")));
 unique_ptr<vector<int>> pwDS(const string& pwToks, unique_ptr<vector<int>> pStates)
 {
+	//cout << "in pwDS, G = " << pwToks << endl;
+	string tokens(pwToks);
 	vector<string> pwTokList;
-	for (auto strTok : split(pwToks, pwTokList))
+	for (auto strTok : split(trim(tokens), pwTokList))
 	{
+		if (!is_digits(strTok))
+			continue;
+
 		tOp ope(strTok);
 		vector<int> statesOld(pStates->cbegin(), pStates->cend());
 		
@@ -243,10 +255,12 @@ unique_ptr<vector<int>> twDS(string& G) __attribute__((optimize("-O2")));
 unique_ptr<vector<int>> twDS(string& G)
 {
 	G = trim(G);
-	//cout << "G = " << G << endl;
+	cout << "G = " << G << endl;
 
 	auto pStates = make_unique<vector<int>>(DS::iTSpace);
-	for_each(pStates->begin(), pStates->end(), [j = 0] (auto &i) mutable { i = initCount(j++); });
+	size_t n = 0;
+	for (auto iter = pStates->begin(); iter != pStates->end(); ++iter)
+		*iter = initCount(n++);
 
 	if (G.length() == 0)  // empty t-parse
 		return move(pStates);
@@ -287,8 +301,9 @@ unique_ptr<vector<int>> twDS(string& G)
 					{
 						string secondPart = G.substr(i2ndStart + 1, j - i2ndStart - 1);
 						auto pStates2 = twDS(secondPart); // right of Circle plus
-						for_each(pStates->begin(), pStates->end(),
-							[] (auto &i) mutable { i = DS::UNDEF; }); // re-initialize states for the right part use
+						//for_each(pStates->begin(), pStates->end(),
+						//	[] (auto &i) mutable { i = DS::UNDEF; }); 
+						pStates->assign(DS::iTSpace, DS::UNDEF);   // re-initialize states for the right part use
 
 						// now update state for circle plus
 						for (size_t x = 0; x < DS::iTSpace; ++x)
